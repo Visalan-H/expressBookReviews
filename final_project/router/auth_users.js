@@ -3,26 +3,68 @@ const jwt = require('jsonwebtoken');
 let books = require("./booksdb.js");
 const regd_users = express.Router();
 
-let users = [];
+let users = [
+    {
+        "username": "vizz",
+        "password": "123456789"
+    }
+];
 
-const isValid = (username)=>{ //returns boolean
-//write code to check is the username is valid
+const jwtSecret = 'eb5222b11f96d3e3da4cc079cf65098bfd987fbbcedb65f617740aca91d40c7f'; // Secret key for JWT signing, should be kept secret in production
+
+const isValid = (username) => { 
+    return users.some(user => user.username === username);
 }
 
-const authenticatedUser = (username,password)=>{ //returns boolean
-//write code to check if username and password match the one we have in records.
+const authenticatedUser = (username, password) => {
+    return users.some(user => user.username === username && user.password === password);
 }
 
-//only registered users can login
 regd_users.post("/login", (req,res) => {
-  //Write your code here
-  return res.status(300).json({message: "Yet to be implemented"});
+  const { username, password } = req.body;
+    
+    if (!username || !password) {
+        return res.status(400).json({ message: "Username and password are required" });
+    }
+    
+    if (authenticatedUser(username, password)) {
+        const token = jwt.sign({ username: username }, jwtSecret, { expiresIn: '1h' });
+        res.status(200).json({ token });
+    } else {
+        res.status(401).json({ message: "Invalid username or password" });
+    }
 });
 
-// Add a book review
 regd_users.put("/auth/review/:isbn", (req, res) => {
-  //Write your code here
-  return res.status(300).json({message: "Yet to be implemented"});
+  const isbn = req.params.isbn;
+  const review = req.query.review;
+  const username = req.user.username;
+
+    if (!review) {
+        return res.status(400).json({ message: "Review is required" });
+    }
+
+    if (books[isbn]) {
+        if (!books[isbn].reviews) {
+            books[isbn].reviews = {};
+        }
+        books[isbn].reviews[username] = review;
+        res.status(200).json({ message: "Review added/updated successfully" });
+    } else {
+        res.status(404).json({ message: "Book not found" });
+    }
+});
+
+regd_users.delete("/auth/review/:isbn", (req, res) => {
+    const isbn = req.params.isbn;
+    const username = req.user.username;
+
+    if (books[isbn] && books[isbn].reviews && books[isbn].reviews[username]) {
+        delete books[isbn].reviews[username];
+        res.status(200).json({ message: "Review deleted successfully" });
+    } else {
+        res.status(404).json({ message: "Review not found" });
+    }
 });
 
 module.exports.authenticated = regd_users;
